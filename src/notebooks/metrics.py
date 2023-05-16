@@ -21,7 +21,7 @@ from sklearn.metrics import (
 import numpy as np
 
 
-metrics = {
+metrics_dict = {
     "accuracy": accuracy_score,
     "precision": precision_score,
     "recall":recall_score,
@@ -34,9 +34,9 @@ metrics = {
     "count": count,
 }
 
-def metric_evaluation(y_true, y_pred, sensitive_features, metrics = metrics):
+def metric_evaluation(y_true, y_pred, sensitive_features, metrics_dict = metrics_dict):
     return MetricFrame(
-        metrics=metrics, 
+        metrics=metrics_dict, 
         y_true=y_true, 
         y_pred=y_pred, 
         sensitive_features=sensitive_features
