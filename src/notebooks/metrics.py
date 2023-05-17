@@ -42,6 +42,15 @@ def metric_evaluation(y_true, y_pred, sensitive_features, metrics_dict = metrics
         sensitive_features=sensitive_features
     )
 
+def get_metric_evaluation(metric_evaluation):
+    fairmetrics = {
+        'equality opportunity difference': metric_evaluation.difference()['true positive rate'],
+        'disparity difference' : metric_evaluation.difference()['selection rate'],
+        'predictive equality difference' : metric_evaluation.difference()['false positive rate'],
+        'average absolute odds difference' : 0.5*(np.abs(metric_evaluation.difference()['false positive rate'])+np.abs(metric_evaluation.difference()['true positive rate']))
+    }
+    return fairmetrics
+
 def metrics(model_metric, fair_metric,sensitive_col):
     def metric_scorer(clf, X, y):
         y_pred = clf.predict(X)
