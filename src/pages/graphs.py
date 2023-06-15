@@ -7,7 +7,81 @@ import plotly.graph_objects as go
 plt.style.use('seaborn-v0_8-darkgrid')
 from plotly.subplots import make_subplots
 
+def create_df_groups_metric(n, metric, results_dict, model_mapping):
+    models = list(map(model_mapping.get,results_dict['models_sim_u'][0]))
+    n_model = models.index(results_dict['models_sim'][0][n])
 
+    df_groups_u = results_dict['metrics_sim_u'][0][n_model].by_group[metric]
+    df_groups_u['Difference'] = results_dict['metrics_sim_u'][0][n_model].difference()[metric]
+    df_groups_u.name = df_groups_u.name + ' u'
+
+    df_groups_m = results_dict['metrics_sim'][0][n].by_group[metric]
+    df_groups_m['Difference'] = results_dict['metrics_sim'][0][n].difference()[metric]
+    df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index()
+    return df_groups
+
+def graph_opt_orig(metric, df_groups):
+    name = df_groups.columns[0]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+                        name = metric,
+                        y=df_groups[name], 
+                        x=df_groups[metric + ' u'],
+                        orientation='h', 
+                        width=0.4, 
+                        showlegend= True, 
+                        marker_color='#d1d1e0')) 
+
+    fig.add_trace(go.Bar(
+                        name = metric + ' optimized',
+                        y=df_groups[name], 
+                        x=df_groups[metric],
+                        orientation='h', 
+                        width=0.4, 
+                        showlegend= True, 
+                        marker_color='#ADD8E6')) 
+
+
+    fig.update_layout(
+        barmode='group',
+        font_size = 14,
+        yaxis=dict(type='category'),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+    )
+
+    fig.update_yaxes(categoryorder='array', categoryarray= df_groups[name])
+    return fig
+
+def indicators(n, metrics, df_metrics, df_metrics_u):
+    n_model = df_metrics.loc[n,'model'] == df_metrics_u['model_abrv']
+    fig = go.Figure()
+    spacing = np.linspace(0, 1, num= len(metrics) + 1, endpoint=True)
+    for i,metric in enumerate(metrics): 
+        fig.add_trace(go.Indicator(
+            mode = "number+delta",
+            value = np.round(df_metrics.loc[n,metric],3),
+            title = {"text": f"<span style='font-size:.8em;color:#455A64'>{metric.capitalize()}</span><br>"},
+            delta = {
+                'reference': np.round(df_metrics_u.loc[n_model,metric].values[0],3), 
+                'relative': True, 
+                'decreasing' : dict(color = '#28B463'),
+                'increasing' : dict(color = '#E74C3C'),
+                'valueformat': ".2f"},
+            domain = {'x': [spacing[i], spacing[i+1]], 'y': [0, 1]}))
+
+
+    fig.update_layout(
+        paper_bgcolor="#ECEFF1",
+        margin=dict(l=40, r=40, t=40, b=40),
+        height=140,  # Added parameter
+    )
+    return fig
 
 def graph_eval_groups(metric_frame):
     fig = make_subplots(rows=1, cols=2, shared_xaxes=False,
@@ -44,7 +118,6 @@ def graph_eval_groups(metric_frame):
 
     fig.update_xaxes(showticklabels=False,title_text= text1, row=1, col=1, range = [1,0], title_font = {"size": 16})
     fig.update_xaxes(showticklabels=False,title_text= text2, row=1, col=2, title_font = {"size": 16}, range = [0,1])
-    #fig.update_xaxes(showticklabels=False,title_text= text3, row=1, col=3, title_font = {"size": 16})
     fig.update_yaxes(tickfont=dict(size = 16))
     fig.update_layout(
         margin=dict(l=20, r=20, t=40, b=20),
@@ -126,6 +199,7 @@ def fig_train_test(df_metrics, metric_title, train_col, test_col):
         title="Train vs Test",
         xaxis_title="Ranking",
         yaxis_title= metric_title,
+        margin=dict(l=20, r=20, t=40, b=40),
         #legend_title="Legend Title",
         showlegend = False,
     )
@@ -151,8 +225,7 @@ def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, mo
         title="Pareto Front",
         xaxis_title=fair_metric_name,
         yaxis_title=model_metric_name,
-        #legend_title="Legend Title",
-        #showlegend = False,
+        margin=dict(l=20, r=20, t=40, b=40),
     )
     return fig
 
@@ -207,7 +280,7 @@ def eval_metrics_graph(df_metrics, labels, colors, title):
     )
     return fig
 
-def comparison_graph(df_ranges, df_metrics, n):
+def comparison_graph(df_ranges, df_metrics, n, title):
     fig = go.Figure()
     df_ranges['metric'] = df_ranges['metric'].str.capitalize()
     for i in range(df_ranges.shape[0]):
@@ -217,7 +290,7 @@ def comparison_graph(df_ranges, df_metrics, n):
                     y= [df_ranges.metric[i]],
                     width = .05,
                     marker = dict(
-                        color = 'lightslategray',
+                        color = "#d1d1e0",
                     ),
                     orientation='h'))
         fig.add_trace(
@@ -227,7 +300,7 @@ def comparison_graph(df_ranges, df_metrics, n):
                     y= [df_ranges.metric[i]],
                     width = .15,
                     marker = dict(
-                        color = 'LightSkyBlue',
+                        color = '#ADD8E6',
                     ),
                     orientation='h'))
         fig.add_trace(
@@ -237,7 +310,7 @@ def comparison_graph(df_ranges, df_metrics, n):
                     y= [df_ranges.metric[i]],
                     width = .05,
                     marker =dict(
-                        color = "lightslategray"
+                        color = "#d1d1e0"
                     ),
                     orientation='h'))
 
@@ -251,7 +324,7 @@ def comparison_graph(df_ranges, df_metrics, n):
                 marker=dict(size=10,
                             symbol = 'line-ns',
                             line=dict(width=2,
-                            color='lightslategray')
+                            color="#d1d1e0")
             ))
         )
 
@@ -266,7 +339,7 @@ def comparison_graph(df_ranges, df_metrics, n):
                 marker=dict(size=10,
                             symbol = 'line-ns',
                             line=dict(width=2,
-                            color='lightslategray')
+                            color="#d1d1e0")
             ))
         )
 
@@ -289,5 +362,6 @@ def comparison_graph(df_ranges, df_metrics, n):
                 yaxis=dict(showgrid=False),
                 showlegend=False,
                 barmode='stack',
+                title = title
     )
     return fig
