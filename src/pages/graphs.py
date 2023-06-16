@@ -79,7 +79,8 @@ def indicators(n, metrics, df_metrics, df_metrics_u):
     fig.update_layout(
         paper_bgcolor="#ECEFF1",
         margin=dict(l=40, r=40, t=40, b=40),
-        height=140,  # Added parameter
+        #autosize = True,
+        #height=140,  # Added parameter
     )
     return fig
 
@@ -88,40 +89,40 @@ def graph_eval_groups(metric_frame):
                         shared_yaxes=True, horizontal_spacing=0)
     
     metric1 = 'false negative rate'
-    y = metric_frame.by_group[metric1].index  + "  "
-    text1 = 'FN (P=0,T=1)'
+    y = metric_frame.by_group[metric1].index  + "     "
+    text1 = "<span style='font-size:.9em;color:#455A64;font-weight:bold'>FN </span> <span style='font-size:.9em;color:#455A64'>(P=0,T=1)</span>"
     x1 = metric_frame.by_group[metric1]
     fig.append_trace(go.Bar(
                         x=x1, 
                         y=y,
                         text=np.round(x1,3), #Display the numbers with thousands separators in hover-over tooltip 
-                        textposition='inside',
+                        textposition='outside',
                         orientation='h', 
-                        width=0.3, 
+                        width=0.4, 
                         showlegend=False, 
                         marker_color='#EEE9BF'), 
                         1, 1) # 1,1 represents row 1 column 1 in the plot grid
 
     metric2 = 'false positive rate'
-    text2 = 'FP (P=1,T=0)'
+    text2 = "<span style='font-size:1em;color:#455A64;font-weight:bold'>FP</span> <span style='font-size:.9em;color:#455A64'>(P=1,T=0)</span>"
     x2 = metric_frame.by_group[metric2]
     fig.append_trace(go.Bar(
                         x=x2, 
                         y=y,
                         text=np.round(x2,3), 
-                        textposition='inside',
+                        textposition='outside',
                         orientation='h', 
-                        width=0.3, 
+                        width=0.4, 
                         showlegend=False, 
                         marker_color='#ADD8E6'), 
                         1, 2) # 1,2 represents row 1 column 2 in the plot grid
 
-    fig.update_xaxes(showticklabels=False,title_text= text1, row=1, col=1, range = [1,0], title_font = {"size": 16})
-    fig.update_xaxes(showticklabels=False,title_text= text2, row=1, col=2, title_font = {"size": 16}, range = [0,1])
-    fig.update_yaxes(tickfont=dict(size = 16))
+    fig.update_xaxes(showticklabels=False,title_text= text1, row=1, col=1, range = [1,0], showgrid=False)
+    fig.update_xaxes(showticklabels=False,title_text= text2, row=1, col=2, range = [0,1], showgrid=False)
+    fig.update_yaxes(tickfont=dict(size = 13))
     fig.update_layout(
         margin=dict(l=20, r=20, t=40, b=20),
-        template = 'plotly_white'
+        template = 'plotly_white',
         #yaxis = {'side': 'right'}
     )
     return fig
@@ -130,25 +131,23 @@ def graph_eval_groups_metric(metric_frame, metric = 'accuracy'):
     fig = go.Figure()
     y = metric_frame.by_group[metric].index  + "      "
     x = metric_frame.by_group[metric]
-    text = metric.capitalize()
+    text = f"<span style='font-size:1em;color:#455A64;font-weight:bold'>{metric.capitalize()}</span>"
     fig.add_trace(go.Bar(
                         x=x, 
                         y=y,
                         text=np.round(x,3), 
                         textposition='inside',
                         orientation='h', 
-                        width=0.3, 
+                        width=0.4, 
                         showlegend=False, 
                         marker_color='#ADD8E6')) 
     
-    fig.update_xaxes(showticklabels=False,title_text= text, title_font = {"size": 16}, range = [0,1])
-    fig.update_yaxes(showticklabels=False)
+    fig.update_xaxes(showticklabels=False,title_text= text, range = [0,1], showgrid=False)
+    fig.update_yaxes(showticklabels=False,showgrid=False)
     fig.update_layout(
         margin=dict(l=20, r=20, t=40, b=20),
         template = 'plotly_white',
     )
-    #fig.update_layout(yaxis_title=None)
-    #fig.update_xaxes(showticklabels=False,title_text= text1, row=1, col=1, range = [1,0], title_font = {"size": 16})
     return fig
 
 def metrics_scatter(metrics, labels, colors):
@@ -214,7 +213,8 @@ def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, mo
             mode='markers', 
             marker_color='#4682B4',
             marker_symbol = df_metrics['model'].astype('category').cat.codes,
-            customdata = df_metrics['model'],
+            customdata = df_metrics.index,
+            #customdata = df_metrics['model'],
             hovertemplate="<br>".join([
                 fair_metric_name+": %{x:,.3f}",
                 model_metric_name+": %{y:,.3f}",
@@ -226,6 +226,7 @@ def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, mo
         xaxis_title=fair_metric_name,
         yaxis_title=model_metric_name,
         margin=dict(l=20, r=20, t=40, b=40),
+        clickmode='event+select',
     )
     return fig
 

@@ -1,6 +1,7 @@
 from dash import Dash, html, dcc, Input, Output
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+import json
 import sys
 import pandas as pd
 from metrics import equality_opportunity_difference, predictive_equality_difference, metric_evaluation, get_metric_evaluation
@@ -66,9 +67,10 @@ for metric in metrics:
 
 df_metrics = create_df_metrics(fair_metrics_dict, model_metrics_dict)
 df_metrics['model'] = results_dict['models_sim'][0]
-new_index = df_metrics[df_metrics['train_model'] != 0].index
-df_metrics = df_metrics[df_metrics['train_model'] != 0].reset_index(drop = True)
-df_metrics_sorted = df_metrics.sort_values(['train_fair']).reset_index(drop = True)
+df_metrics = df_metrics[df_metrics['train_model'] != 0]
+df_metrics_sorted = df_metrics.sort_values(['train_fair'])
+new_index = df_metrics_sorted.index
+df_metrics_sorted = df_metrics_sorted.reset_index(drop = True)
 
 colors = ['SkyBlue','LightCoral','MediumPurple','SandyBrown']
 model_title = 'Model metrics'
@@ -84,7 +86,7 @@ model_col = 'f1 score'
 train_fair_col = 'train_fair'
 train_model_col = 'train_model'
 
-paretoFig = pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, model_metric_name)
+paretoFig = pareto_fig(df_metrics_sorted, train_fair_col, train_model_col, fair_metric_name, model_metric_name)
 
 fig_model = fig_train_test(
     df_metrics_sorted,
@@ -98,16 +100,9 @@ fig_fair = fig_train_test(
     train_col = train_fair_col,
     test_col = fair_col)
 
-df_fair_ranges = create_df_ranges(fair_metrics, df_metrics)
-fig_fair_comparison = comparison_graph(df_ranges = df_fair_ranges, df_metrics = df_metrics, n = 25, title = fair_title)
+df_fair_ranges = create_df_ranges(fair_metrics, df_metrics_sorted)
+df_model_ranges = create_df_ranges(metrics, df_metrics_sorted)
 
-df_model_ranges = create_df_ranges(metrics, df_metrics)
-fig_model_comparison = comparison_graph(df_ranges = df_model_ranges, df_metrics = df_metrics, n = 25, title = model_title)
-
-n=20
-metric_frame = results_dict['metrics_sim'][0][new_index[20]]
-fig_eval_groups = graph_eval_groups(metric_frame)
-fig_eval_groups_metric = graph_eval_groups_metric(metric_frame, metric = 'accuracy')
 
 model_mapping = {
     'LogisticRegression':'LR',
@@ -117,16 +112,12 @@ model_mapping = {
 df_metrics_u = create_df_metrics(fair_metrics_u_dict, model_metrics_u_dict)
 df_metrics_u['model'] = results_dict['models_sim_u'][0]
 df_metrics_u['model_abrv'] = df_metrics_u['model'].map(model_mapping)
-fig_indicators = indicators(n, metrics, df_metrics, df_metrics_u)
-fig_indicators_fair = indicators(n, fair_metrics, df_metrics, df_metrics_u)
 
-metric_group = 'true positive rate'
-df_groups = create_df_groups_metric(new_index[20], metric_group, results_dict, model_mapping)
-fig_groups_opt_orig = graph_opt_orig(metric_group, df_groups)
 ### Dash 
 external_stylesheets = [dbc.themes.BOOTSTRAP] 
 app = Dash(__name__,
-           external_stylesheets=external_stylesheets) #,
+           external_stylesheets=external_stylesheets,
+           suppress_callback_exceptions=True) #,
            #use_pages=True)
 
 navbar = dbc.NavbarSimple(
@@ -137,6 +128,110 @@ navbar = dbc.NavbarSimple(
     fluid= True,
     style={'padding-left': '15px', "height": "8vh", "margin-bottom":"15px"},
 )
+
+tab_results_layout = html.Div([
+    dbc.Row([
+        dbc.Col([
+            html.Br(),
+            dcc.Graph(
+                id = "paretofig",
+                figure = paretoFig,
+                clickData={'points': [{'customdata': int(df_metrics_sorted.shape[0]/2)}]}
+            )],
+            width=4),
+        dbc.Col([
+            html.Br(),
+            dcc.Graph(
+                figure= fig_fair
+                ),
+        ], width=4),
+        dbc.Col([
+            html.Br(),
+            dcc.Graph(
+                figure= fig_model
+            ),
+        ],width=4),
+            ]),
+])
+
+tab_evaluation_layout = html.Div([
+    dbc.Row([
+        dbc.Col([
+            html.Br(),
+            dcc.Dropdown(
+                id='fair_comparison_choice',
+                options=[{'label':'Scatter','value':'scatter'},{'label':'Bars','value':'bars'}],
+                value= 'bars',
+                style={'width': '70%'}
+            ),
+            dcc.Graph(
+                id = 'fig_evaluation_fair',
+                #figure = fig_fair_comparison,
+            )],
+            width=6),
+        dbc.Col([
+            html.Br(),
+            dcc.Dropdown(
+                id='model_comparison_choice',
+                options=[{'label':'Scatter','value':'scatter'},{'label':'Bars','value':'bars'}],
+                value= 'bars',
+                style={'width': '70%'}
+            ),
+            #html.H5("Model Metrics", style={'color': '#455A64', 'text-align': 'center'}),
+            dcc.Graph(
+                id = 'fig_evaluation_model',
+            )],
+            width=6),
+        ]),
+    ])
+
+
+tab_evaluation_groups_layout = html.Div(children = [
+            dbc.Col(children = [
+            html.Br(),
+            
+            dcc.Dropdown(
+                id='metric_eval_choice',
+                options= [{'label': x.capitalize(), 'value': x} for x in results_dict['metrics_sim'][0][1].by_group.columns],
+                value= 'f1 score',
+                style={'width': '50%', '':''}
+            ),
+            html.Br(),
+            dcc.Graph(id='fig_eval_groups', 
+                        style={"width":600, "height":350, "margin": 0,  'display': 'inline-block'}),
+            dcc.Graph(id='fig_eval_groups_metric', 
+                        style={"width":350, "height":350, "margin": 0,  'display': 'inline-block'}
+                    )]),
+        ], className="row")
+    
+tab_comparison = html.Div([
+        html.Br(),
+        html.Div([
+            dcc.Graph(
+                id = "fig_groups_opt_orig",
+            )
+
+        ])
+        ])
+
+tab_indicators = html.Div([
+        html.Br(),
+        html.H5("Model Metrics", style={'color': '#455A64', 'text-align': 'center'}),
+        html.Div([
+            dcc.Graph(
+                id = 'fig_indicators',
+                style={"height": 140}
+                )
+        ], style={'background-color': '#78909C'}),
+        html.Br(),
+        html.H5("Fair Metrics", style={'color':'#455A64', 'text-align':'center'}),
+        html.Div([
+            dcc.Graph(
+                id = 'fig_indicators_fair',
+                style={"height": 140}
+            )
+        ],  style={'background-color': '#78909C'})
+        ])
 
 tab_height = '6vh'
 content = html.Div(
@@ -150,12 +245,11 @@ content = html.Div(
                 'height': tab_height
     }, 
             children=[
-                dcc.Tab(label='Results', value='tab-results', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}),
-                dcc.Tab(label='Summary', value='tab-summary',style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}),
-                dcc.Tab(label='Evaluation', value='tab-evaluation',style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}),
-                dcc.Tab(label='Evaluation Groups', value='tab-evaluation-groups',style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}),
-                dcc.Tab(label='Indicators', value='tab-indicators',style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}),
-                dcc.Tab(label='Comparison', value='tab-comparison',style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height})
+                dcc.Tab(label='Results', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}, children = tab_results_layout ),
+                dcc.Tab(label='Indicators', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}, children = tab_indicators),
+                dcc.Tab(label='Evaluation', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}, children = tab_evaluation_layout),
+                dcc.Tab(label='Evaluation Groups', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}, children = tab_evaluation_groups_layout),
+                dcc.Tab(label='Comparison', style={'padding': '0','line-height': tab_height},selected_style={'padding': '0','line-height': tab_height}, children = tab_comparison)
         ]),
     html.Div(id='tabs-content-example-graph')
 ])
@@ -174,114 +268,63 @@ app.layout = dbc.Container(
     
 )
 
-tab_results_layout = html.Div([
-    dbc.Row([
-        dbc.Col(
-            dcc.Graph(
-                figure = paretoFig
-            ),
-            width=4),
-        dbc.Col([
-            #html.H4("Train vs Test"),
-            dcc.Graph(
-                figure= fig_fair
-                ),
-        ], width=4),
-        dbc.Col(
-            dcc.Graph(
-                figure= fig_model
-            ),
-            width=4),
-            ]),
-])
+@app.callback(
+    Output('fig_eval_groups', 'figure'),
+    Output('fig_eval_groups_metric', 'figure'),
+    [Input('paretofig', 'clickData'),
+     Input('metric_eval_choice','value')])
+def update_eval_figure(clickData, metric):
+    n = clickData['points'][0]['customdata']
+    metric_frame = results_dict['metrics_sim'][0][new_index[n]]
+    fig_eval_groups = graph_eval_groups(metric_frame)
+    fig_eval_groups_metric = graph_eval_groups_metric(metric_frame, metric = metric)
+    return fig_eval_groups, fig_eval_groups_metric
 
-tab_summary_layout = html.Div([
-    dbc.Row([
-        dbc.Col([
-            #html.H5("Fair Metrics", style={'color': '#455A64', 'text-align': 'center'}),
-            dcc.Graph(
-                figure = fig_fair_comparison,
-            )],
-            width=6),
-        dbc.Col([
-            #html.H5("Model Metrics", style={'color': '#455A64', 'text-align': 'center'}),
-            dcc.Graph(
-                figure = fig_model_comparison,
-            )],
-            width=6),
-        ]),
-    ])
+@app.callback(
+    Output('fig_indicators', 'figure'),
+    Output('fig_indicators_fair', 'figure'),
+    [Input('paretofig', 'clickData')])
+def update_indicators_figure(clickData):
+    n = clickData['points'][0]['customdata']
+    fig_indicators = indicators(int(n), metrics, df_metrics_sorted, df_metrics_u)
+    fig_indicators_fair = indicators(int(n), fair_metrics, df_metrics_sorted, df_metrics_u)
+    return fig_indicators, fig_indicators_fair
 
-tab_evaluation_layout = html.Div([
-    dbc.Row([
-        dbc.Col([
-            dcc.Graph(
-                figure= fig_eval_model
-                ),
-        ], width=6),
-        dbc.Col(
-            dcc.Graph(
-                figure= fig_eval_fairness
-            ),
-            width=6),
-        ])
-    ])
+@app.callback(
+    Output('fig_groups_opt_orig', 'figure'),
+    [Input('paretofig', 'clickData')])
+def update_groups_figure(clickData):
+    metric_group = 'true positive rate'
+    n = clickData['points'][0]['customdata']
+    df_groups = create_df_groups_metric(int(new_index[n]), metric_group, results_dict, model_mapping)
+    return graph_opt_orig(metric_group, df_groups)
+
+@app.callback(  
+    Output('fig_evaluation_fair', 'figure'),
+    [Input('fair_comparison_choice', 'value'),
+     Input('paretofig', 'clickData')])
+def update_fair_eval_figure(selected_drop, clickData):
+    n = clickData['points'][0]['customdata']
+    if selected_drop == 'bars':
+        fig = comparison_graph(df_ranges = df_fair_ranges, df_metrics = df_metrics_sorted, n = n, title = fair_title)
+    elif selected_drop == 'scatter':
+        fig = fig_eval_fairness
+    return fig
+
+@app.callback(
+    Output('fig_evaluation_model', 'figure'),
+    [Input('model_comparison_choice', 'value'),
+     Input('paretofig', 'clickData')])
+def update_model_eval_figure(selected_drop, clickData):
+    n = clickData['points'][0]['customdata']
+    if selected_drop == 'bars':
+        fig = comparison_graph(df_ranges = df_model_ranges, df_metrics = df_metrics_sorted, n = n, title = model_title)
+    elif selected_drop == 'scatter':
+        fig = fig_eval_model
+    return fig
 
 
-tab_evaluation_groups_layout = html.Div(children = [
-            dbc.Col(children = [
-            dcc.Graph(id='g1', 
-                        figure= fig_eval_groups, 
-                        style={"width":600, "margin": 0,  'display': 'inline-block'}),
-            dcc.Graph(id='g2', 
-                        figure=fig_eval_groups_metric, 
-                        style={"width":350, "margin": 0,  'display': 'inline-block'}
-                    )]),
-        ], className="row")
-    
-tab_comparison = html.Div([
-        html.Br(),
-        #html.H5("Model Metrics", style={'color': '#455A64', 'text-align': 'center'}),
-        html.Div([
-            dcc.Graph(
-                figure= fig_groups_opt_orig,
-            )
 
-        ])
-        ])
-
-tab_indicators = html.Div([
-        html.Br(),
-        html.H5("Model Metrics", style={'color': '#455A64', 'text-align': 'center'}),
-        html.Div([
-            dcc.Graph(
-                figure= fig_indicators,
-                )
-        ], style={'background-color': '#78909C'}),
-        html.Br(),
-        html.H5("Fair Metrics", style={'color':'#455A64', 'text-align':'center'}),
-        html.Div([
-            dcc.Graph(
-                figure= fig_indicators_fair,
-            )
-        ],  style={'background-color': '#78909C'})
-        ])
-
-@app.callback(Output('tabs-content-example-graph', 'children'),
-              Input('tabs-example-graph', 'value'))
-def render_content(tab):
-    if tab == 'tab-results':
-        return tab_results_layout 
-    elif tab == 'tab-summary':
-        return tab_summary_layout
-    elif tab == 'tab-evaluation':
-        return tab_evaluation_layout
-    elif tab == 'tab-evaluation-groups':
-        return tab_evaluation_groups_layout
-    elif tab == 'tab-indicators':
-        return tab_indicators
-    elif tab == 'tab-comparison':
-        return tab_comparison
 
 if __name__ == '__main__':
     app.run_server(debug=True)
