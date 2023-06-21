@@ -79,8 +79,6 @@ def indicators(n, metrics, df_metrics, df_metrics_u):
     fig.update_layout(
         paper_bgcolor="#ECEFF1",
         margin=dict(l=40, r=40, t=40, b=40),
-        #autosize = True,
-        #height=140,  # Added parameter
     )
     return fig
 
@@ -150,28 +148,14 @@ def graph_eval_groups_metric(metric_frame, metric = 'accuracy'):
     )
     return fig
 
-def metrics_scatter(metrics, labels, colors):
-    fig, ax = plt.subplots(figsize=(10,6))
-    for i, (color, label) in enumerate(zip(colors,labels)):
-        if i != 0:
-            y = list(zip(*metrics))[i]
-            ax.scatter(range(len(y)), y, c=color, label=label)
 
-    ax.legend()
-    ax.grid(True)
-    plt.show()
-
-def pareto_graph(fair_metrics_dict, model_metrics_dict, train_col = 'train'):
-    pareto = list(zip(fair_metrics_dict[train_col], model_metrics_dict[train_col]))
-    pareto_sorted = sorted(pareto, key = lambda x: x[0])
-    return plt.scatter(list(zip(*pareto_sorted))[0], list(zip(*pareto_sorted))[1], color = '#4682B4')
-
-def fig_train_test(df_metrics, metric_title, train_col, test_col):
+def fig_train_test(df_metrics, metric_title, train_col, test_col, title = ''):
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
             x=df_metrics.index, 
             y=df_metrics[train_col],
+            name = 'Train',
             mode='markers', 
             marker_color='#4682B4',
             customdata = df_metrics['model'],
@@ -185,6 +169,7 @@ def fig_train_test(df_metrics, metric_title, train_col, test_col):
         go.Scatter(
             x= df_metrics.index, 
             y= df_metrics[test_col], 
+            name = 'Test',
             customdata = df_metrics['model'],
             mode = 'markers',
             marker_color='#87CEEB',
@@ -192,41 +177,61 @@ def fig_train_test(df_metrics, metric_title, train_col, test_col):
                 "Ranking: %{x}",
                 metric_title +" (test): %{y:,.3f}",
                 "Model: %{customdata}",
+                "<extra></extra>"
             ])
             ))
     fig.update_layout(
-        title="Train vs Test",
+        title= title,
         xaxis_title="Ranking",
         yaxis_title= metric_title,
         margin=dict(l=20, r=20, t=40, b=40),
-        #legend_title="Legend Title",
-        showlegend = False,
+        showlegend = True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size= 12),
+            ),
     )
     return fig
 
-def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, model_metric_name):
+def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=df_metrics[train_fair_col], 
-            y=df_metrics[train_model_col],
-            mode='markers', 
-            marker_color='#4682B4',
-            marker_symbol = df_metrics['model'].astype('category').cat.codes,
-            customdata = df_metrics.index,
-            #customdata = df_metrics['model'],
-            hovertemplate="<br>".join([
-                fair_metric_name+": %{x:,.3f}",
-                model_metric_name+": %{y:,.3f}",
-                "Model: %{customdata}",
-            ])
-            ))
+    for model, color in zip(df_metrics['model'].unique(),colors):
+        df_model = df_metrics[df_metrics.model == model]
+        fig.add_trace(
+            go.Scatter(
+                x=df_model[train_fair_col], 
+                y=df_model[train_model_col],
+                mode='markers', 
+                name = model,
+                marker = {'color': color,
+                'size': 6 
+                },
+                customdata = df_model['model'],
+                hovertemplate="<br>".join([
+                    fair_metric_name+" (test): %{x:,.3f}",
+                    model_metric_name+" (test): %{y:,.3f}",
+                    "Model: %{customdata}",
+                ])
+                ))
     fig.update_layout(
         title="Pareto Front",
         xaxis_title=fair_metric_name,
         yaxis_title=model_metric_name,
         margin=dict(l=20, r=20, t=40, b=40),
         clickmode='event+select',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size= 12),
+            ),
+        showlegend=True 
     )
     return fig
 
@@ -267,6 +272,7 @@ def eval_metrics_graph(df_metrics, labels, colors, title):
                     "Ranking: %{x}",
                     label.capitalize() +" (test): %{y:,.3f}",
                     "Model: %{customdata}",
+                    "<extra></extra>",
                 ])
         ))
     fig.update_layout(
@@ -275,7 +281,8 @@ def eval_metrics_graph(df_metrics, labels, colors, title):
             yanchor="bottom",
             y=1.02,
             xanchor="right",
-            x=1
+            x=1,
+            font=dict(size= 10),
             ),
         title = title
     )

@@ -68,20 +68,21 @@ content = html.Div(
             dcc.Dropdown(
                 id='dropdown_opt_fair_metrics',
                 options=[
-                    {'label': 'Statistical Parity Diff', 'value': 'spd'},
-                    {'label': 'Equal Opportunity Diff', 'value': 'eod'},
-                    {'label': 'Predictive Equality Diff', 'value': 'ped'},
-                    {'label': 'Avg Odd Diff', 'value': 'avd'},
+                    {'label': 'Demographic Parity', 'value': 'dpd'},
+                    {'label': 'Predictive Parity', 'value': 'ppd'},
+                    {'label': 'Predictive Equality', 'value': 'ped'},
+                    {'label': 'Equal Opportunity', 'value': 'eod'},
+                    {'label': 'Avg Absolute Odds', 'value': 'aao'},
                 ],
                 clearable = False,
-                value='spd',
+                value='ppd',
                 style={'width': '70%', "margin-bottom":"10px"}
             ),
         ])
     ]),
     dbc.Row([
         dbc.Col([
-            html.P("Sensitive Attributes",
+            html.P("Sensitive Attribute",
                 className = 'text-center text-primary, mb-4 ',
                 style={
                     'margin-left': '40px', 
@@ -123,14 +124,14 @@ content = html.Div(
                 ], width = 4),
         dbc.Col([
             dcc.Dropdown(
-                id='dropdown_model',
+                id='dropdown_eval_model_metrics',
                 options=[
-                    {'label': 'Random Forest', 'value': 'rf'},
-                    {'label': 'GBM', 'value': 'gbm'},
-                    {'label': 'LGBM', 'value': 'lgbm'},
-                    {'label': 'Logistic Regression', 'value': 'lr'},
+                    {'label': 'Recall', 'value': 'recall'},
+                    {'label': 'Precision', 'value': 'precision'},
+                    {'label': 'F1 score', 'value': 'f1_score'},
+                    {'label': 'Accuracy', 'value': 'accuracy'},
                 ],
-                value=['rf','gbm','lgbm'],
+                value=['recall','precision','f1_score','accuracy'],
                 multi = True,
                 style={'width': '100%', "margin-bottom":"15px"}
             ),
@@ -151,12 +152,13 @@ content = html.Div(
                 id='dropdown_eval_fair_metrics',
                 placeholder = "Fairness Metrics",
                 options=[
-                    {'label': 'Statistical Parity Diff', 'value': 'spd'},
-                    {'label': 'Equal Opportunity Diff', 'value': 'eod'},
-                    {'label': 'Predictive Equality Diff', 'value': 'ped'},
-                    {'label': 'Avg Odd Diff', 'value': 'avd'},
+                    {'label': 'Demographic Parity', 'value': 'dpd'},
+                    {'label': 'Predictive Parity', 'value': 'ppd'},
+                    {'label': 'Predictive Equality', 'value': 'ped'},
+                    {'label': 'Equal Opportunity', 'value': 'eod'},
+                    {'label': 'Avg Absolute Odds', 'value': 'aao'},
                 ],
-                value=['spd','eod','ped','avd'],
+                value=['dpd','ppd','ped','eod','aao'],
                 multi = True,
                 style={'minWidth': '50%', "margin-bottom":"10px"}
             ),
