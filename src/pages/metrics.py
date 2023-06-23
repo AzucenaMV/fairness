@@ -14,9 +14,26 @@ from sklearn.metrics import (
     precision_score, 
     recall_score,
     f1_score, 
+    mean_squared_error,
+    mean_absolute_error
 )
 import numpy as np
 
+def mse(df_metrics, train_col, test_col):
+    return mean_absolute_error(df_metrics[train_col], df_metrics[test_col])
+
+def nmse(df_metrics, train_col, test_col):
+    ymin = np.min(df_metrics[train_col])
+    ymax = np.max(df_metrics[train_col])
+    return mean_absolute_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
+
+def mae(df_metrics, train_col, test_col):
+    return mean_squared_error(df_metrics[train_col], df_metrics[test_col])
+
+def nmae(df_metrics, train_col, test_col):
+    ymin = np.min(df_metrics[train_col])
+    ymax = np.max(df_metrics[train_col])
+    return mean_squared_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
 
 metrics_dict = {
     "accuracy": accuracy_score,
