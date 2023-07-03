@@ -1,4 +1,3 @@
-from sklearn.metrics import f1_score, confusion_matrix, make_scorer
 from fairlearn.metrics import (
     MetricFrame,
     count,
@@ -15,11 +14,26 @@ from sklearn.metrics import (
     precision_score, 
     recall_score,
     f1_score, 
-    confusion_matrix, 
-    make_scorer
+    mean_squared_error,
+    mean_absolute_error
 )
 import numpy as np
 
+def mse(df_metrics, train_col, test_col):
+    return mean_absolute_error(df_metrics[train_col], df_metrics[test_col])
+
+def nmse(df_metrics, train_col, test_col):
+    ymin = np.min(df_metrics[train_col])
+    ymax = np.max(df_metrics[train_col])
+    return mean_absolute_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
+
+def mae(df_metrics, train_col, test_col):
+    return mean_squared_error(df_metrics[train_col], df_metrics[test_col])
+
+def nmae(df_metrics, train_col, test_col):
+    ymin = np.min(df_metrics[train_col])
+    ymax = np.max(df_metrics[train_col])
+    return mean_squared_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
 
 metrics_dict = {
     "accuracy": accuracy_score,
@@ -34,22 +48,23 @@ metrics_dict = {
     "count": count,
 }
 
+def get_metric_evaluation(metric_evaluation):
+    fairmetrics = {
+        'demographic parity' : metric_evaluation.difference()['selection rate'],
+        'predictive parity' : metric_evaluation.difference()['precision'],
+        'equality opportunity': metric_evaluation.difference()['true positive rate'],
+        'predictive equality' : metric_evaluation.difference()['false positive rate'],
+        'average absolute odds' : 0.5*(np.abs(metric_evaluation.difference()['false positive rate'])+np.abs(metric_evaluation.difference()['true positive rate']))
+    }
+    return fairmetrics
+
 def metric_evaluation(y_true, y_pred, sensitive_features, metrics_dict = metrics_dict):
     return MetricFrame(
-        metrics=metrics_dict, 
+        metrics=metrics_dict,   
         y_true=y_true, 
         y_pred=y_pred, 
         sensitive_features=sensitive_features
     )
-
-def get_metric_evaluation(metric_evaluation):
-    fairmetrics = {
-        'equality opportunity difference': metric_evaluation.difference()['true positive rate'],
-        'disparity difference' : metric_evaluation.difference()['selection rate'],
-        'predictive equality difference' : metric_evaluation.difference()['false positive rate'],
-        'average absolute odds difference' : 0.5*(np.abs(metric_evaluation.difference()['false positive rate'])+np.abs(metric_evaluation.difference()['true positive rate']))
-    }
-    return fairmetrics
 
 def metrics(model_metric, fair_metric,sensitive_col):
     def metric_scorer(clf, X, y):
@@ -61,6 +76,9 @@ def metrics(model_metric, fair_metric,sensitive_col):
 
 def equality_opportunity_difference(y_true, y_pred, sensitive_features):
     return MetricFrame(metrics=true_positive_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_features).difference()
+
+def predictive_parity_difference(y_true, y_pred, sensitive_features):
+    return MetricFrame(metrics=precision_score, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_features).difference()
 
 def predictive_equality_difference(y_true, y_pred, sensitive_features):
     return MetricFrame(metrics=false_positive_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_features).difference()
