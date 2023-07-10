@@ -41,26 +41,35 @@ def graph_fair_opt_orig(df_groups, mapping):
     name = df_groups.columns[0]
     fig = make_subplots(rows=1, cols=len(mapping), horizontal_spacing=.01)
     for i,(col, metric) in enumerate(zip(mapping.keys(),mapping.values())):
+        if i == 0:
+            showlegend = True
+        else:
+            showlegend = False
+
         fig.add_trace(go.Bar(
-                            name = metric,
+                            name = 'Non-Optmized',
                             y=df_groups[name] + ' ', 
                             x=df_groups[col + ' u'],
                             orientation='h', 
-                            width=0.4, 
-                            showlegend= False, 
+                            width=0.4,
+                            #name = "Non-Optmized", 
+                            #legendgrouptitle_text="Non-Optmized",
+                            legendgroup="Non-Optmized",
+                            showlegend= showlegend, 
                             marker_color='#d1d1e0'),
                             row = 1, col = i+1)
                             #row = int(np.ceil((i+1)/2)), col = (i % 2) + 1) 
 
         fig.add_trace(go.Bar(
-                            name = metric + ' optimized',
+                            #name = metric + ' optimized',
+                            name = 'Optimized',
                             y=df_groups[name] + ' ', 
                             x=df_groups[col],
-                            #text=np.round(df_groups[col],2), 
-                            #textposition='outside',
+                            #legendgrouptitle_text="Optmized",
+                            legendgroup="Optmized",
                             orientation='h', 
                             width=0.4, 
-                            showlegend= False, 
+                            showlegend= showlegend, 
                             marker_color='#ADD8E6'),
                             row = 1, col = i+1)
 
@@ -71,13 +80,14 @@ def graph_fair_opt_orig(df_groups, mapping):
     fig.update_layout(
         #uniformtext_minsize=5, 
         #uniformtext_mode='hide',
+        #  margin=dict(l=40, r=40, t=150, b=40),
         barmode='group',
         font_size = 12,
         yaxis=dict(type='category'),
         legend=dict(
-            orientation="h",
+            orientation="v",
             yanchor="bottom",
-            y=1.02,
+            y=0.02,
             xanchor="right",
             x=1
         ),
@@ -318,8 +328,9 @@ def fig_train_test_bars(df_metrics, metric_title, train_col, test_col, ranking_m
     )
     return fig
 
-def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
+def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
     fig = go.Figure()
+
     for model, color in zip(df_metrics['model'].unique(),colors):
         condition = df_metrics.model == model
         fig.add_trace(
@@ -338,6 +349,27 @@ def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, mo
                     "Ranking: %{customdata}",
                 ])
                 ))
+        condition = df_metrics_u.model_abrv == model
+        fig.add_trace(
+            go.Scatter(
+                    x=df_metrics_u.loc[condition, train_fair_col], 
+                    y=df_metrics_u.loc[condition, train_model_col],
+                    mode='markers', 
+                    name = model,
+                    marker = {
+                        'color': color,
+                        'size': 6,
+                        'symbol' : 'x'
+                    },
+                    showlegend = False,
+                    customdata = df_metrics_u[condition].index,
+                    hovertemplate="<br>".join([
+                        fair_metric_name+" (default): %{x:,.3f}",
+                        model_metric_name+" (default): %{y:,.3f}",
+                    ])
+            )
+        )
+
     fig.update_layout(
         title="<span style='font-size:.85em;color:#455A64'>Select a model from the Pareto Front:</span><br>",
         xaxis_title=fair_metric_name,

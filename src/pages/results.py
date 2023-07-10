@@ -39,7 +39,7 @@ import dash
 import dill
 
 
-file_name = 'f1-parity-models-dashboard.pkl'
+file_name = 'recall-fpr-models-motpe-succesivehalving-parallel-180trials-1sim-results.pkl'
 with open(file_name, 'rb') as in_strm:
     results_dict = dill.load(in_strm)
 
@@ -72,6 +72,8 @@ metrics_bygroup = {
     #"true negative rate" : "True negative rate"
 }
 
+
+
 fair_metrics_dict['train_fair'],_ = list(zip(*results_dict['res_sim'][0]))
 for metric in fair_metrics:
     fair_metrics_dict[metric] = [get_metric_evaluation(metric_frame)[metric] for metric_frame in results_dict['metrics_sim'][0]]
@@ -91,6 +93,16 @@ for metric in metrics:
     model_metrics_dict[metric] = [metric_frame.overall[metric] for metric_frame in results_dict['metrics_sim'][0]]
     model_metrics_u_dict[metric] = [metric_frame.overall[metric] for metric_frame in results_dict['metrics_sim_u'][0]]
 
+model_mapping = {
+    'LogisticRegression':'LR',
+    'RandomForestClassifier':'RF',
+    'GradientBoostingClassifier':'GBM',
+    'LGBMClassifier' : 'LGBM'}
+
+df_metrics_u = create_df_metrics(fair_metrics_u_dict, model_metrics_u_dict)
+df_metrics_u['model'] = results_dict['models_sim_u'][0]
+df_metrics_u['model_abrv'] = df_metrics_u['model'].map(model_mapping)
+
 df_metrics = create_df_metrics(fair_metrics_dict, model_metrics_dict)
 df_metrics['model'] = results_dict['models_sim'][0]
 df_metrics = df_metrics[df_metrics['train_model'] != 0]
@@ -100,17 +112,17 @@ df_metrics_sorted = df_metrics_sorted.reset_index(drop = True)
 
 colors = ['CornflowerBlue','LightCoral','MediumPurple','SandyBrown','lightseagreen']
 
-fair_metric_name = 'Demographic Parity Difference'
-model_metric_name = 'F1 Score'
-fair_col = 'demographic parity'
-model_col = 'f1 score'
+fair_metric_name = 'Predictive Equality Difference'
+model_metric_name = 'Recall'
+fair_col = 'predictive equality'
+model_col = 'recall'
 train_fair_col = 'train_fair'
 train_model_col = 'train_model'
 
 fair_mse = np.round(nmse(df_metrics_sorted, train_fair_col, fair_col),3)
 model_mse = np.round(nmse(df_metrics_sorted, train_model_col, model_col),3)
 
-paretoFig = pareto_fig(df_metrics_sorted, fair_col, model_col, fair_metric_name, model_metric_name, colors)
+paretoFig = pareto_fig(df_metrics_sorted, df_metrics_u, fair_col, model_col, fair_metric_name, model_metric_name, colors)
 
 fig_model = fig_train_test(
     df_metrics_sorted,
@@ -130,15 +142,6 @@ fig_fair = fig_train_test(
     metric_result = fair_mse)
 
 
-
-model_mapping = {
-    'LogisticRegression':'LR',
-    'RandomForestClassifier':'RF',
-    'GradientBoostingClassifier':'GBM',
-    'LGBMClassifier' : 'LGBM'}
-df_metrics_u = create_df_metrics(fair_metrics_u_dict, model_metrics_u_dict)
-df_metrics_u['model'] = results_dict['models_sim_u'][0]
-df_metrics_u['model_abrv'] = df_metrics_u['model'].map(model_mapping)
 
 ### Dash 
 CONTENT_STYLE = {
