@@ -14,6 +14,7 @@ from sklearn.metrics import (
     precision_score, 
     recall_score,
     f1_score, 
+    matthews_corrcoef,
     mean_squared_error,
     mean_absolute_error
 )
@@ -45,6 +46,7 @@ metrics_dict = {
     "true positive rate": true_positive_rate,
     "false negative rate": false_negative_rate,
     "true negative rate": true_negative_rate,
+    "mcc": matthews_corrcoef,
     "count": count,
 }
 
