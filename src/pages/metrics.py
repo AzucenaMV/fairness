@@ -26,7 +26,7 @@ def mse(df_metrics, train_col, test_col):
 def nmse(df_metrics, train_col, test_col):
     ymin = np.min(df_metrics[train_col])
     ymax = np.max(df_metrics[train_col])
-    return mean_absolute_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
+    return (mean_absolute_error(df_metrics[train_col], df_metrics[test_col]) - ymin)/(ymax - ymin)
 
 def mae(df_metrics, train_col, test_col):
     return mean_squared_error(df_metrics[train_col], df_metrics[test_col])
@@ -34,7 +34,7 @@ def mae(df_metrics, train_col, test_col):
 def nmae(df_metrics, train_col, test_col):
     ymin = np.min(df_metrics[train_col])
     ymax = np.max(df_metrics[train_col])
-    return mean_squared_error(df_metrics[train_col], df_metrics[test_col])/(ymax - ymin)
+    return (mean_squared_error(df_metrics[train_col], df_metrics[test_col]) - ymin)/(ymax - ymin)
 
 metrics_dict = {
     "accuracy": accuracy_score,
