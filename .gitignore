@@ -52,6 +52,7 @@ coverage.xml
 cover/
 *.pkl
 *.png
+*.db
 
 
 # Translations
