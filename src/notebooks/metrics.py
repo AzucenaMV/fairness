@@ -41,12 +41,12 @@ metrics_dict = {
     "precision": precision_score,
     "recall":recall_score,
     "f1 score": f1_score,
+    "mcc": matthews_corrcoef,
     "selection rate": selection_rate,
     "false positive rate": false_positive_rate,
     "true positive rate": true_positive_rate,
     "false negative rate": false_negative_rate,
     "true negative rate": true_negative_rate,
-    "mcc": matthews_corrcoef,
     "count": count,
 }
 
@@ -68,7 +68,7 @@ def metric_evaluation(y_true, y_pred, sensitive_features, metrics_dict = metrics
         sensitive_features=sensitive_features
     )
 
-def metrics(model_metric, fair_metric,sensitive_col):
+def metrics(model_metric, fair_metric, sensitive_col):
     def metric_scorer(clf, X, y):
         y_pred = clf.predict(X)
         performance_metric = model_metric(y,y_pred)
@@ -94,3 +94,18 @@ def disparate_impact(y_true, y_pred, sensitive_features):
     group_min = MetricFrame(metrics=selection_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_features).group_min()
     group_max = MetricFrame(metrics=selection_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_features).group_max()
     return group_min/ group_max
+
+def get_functions():
+    functions = {
+        'f1_score': f1_score,
+        'recall_score': recall_score,
+        'precision_score' : precision_score,
+        'accuracy_score': accuracy_score,
+        'matthews_corrcoef' : matthews_corrcoef,
+        'predictive_parity_difference' : predictive_parity_difference,
+        'equality_opportunity_difference' : equality_opportunity_difference,
+        'predictive_equality_difference' : predictive_equality_difference,
+        'average_absolute_odds_difference' : average_absolute_odds_difference,
+        'demographic_parity_difference' : demographic_parity_difference,
+    }
+    return functions
