@@ -1,0 +1,63 @@
+{
+    "f1_score": {
+        "optimization":"maximize",
+        "type":"model",
+        "name": "F1 Score"
+    },
+    "recall_score":{
+        "optimization":"maximize",
+        "type":"model",
+        "name": "Recall"
+
+    },
+    "precision_score":{
+        "optimization":"maximize",
+        "type":"model",
+        "name": "Precision"
+
+    },
+    "accuracy_score":{
+        "optimization":"maximize",
+        "type":"model",
+        "name": "Accuracy"
+    },
+    "matthews_corrcoef":{
+        "optimization":"maximize",
+        "type":"model",
+        "name": "Matthews Correlation Coefficient",
+        "short_name" : "MCC"
+    },
+    "equality_opportunity_difference":{
+        "optimization":"minimize",
+        "type":"fairness",
+        "name": "Equality Opportunity Difference",
+        "short_name":"Equality Opportunity"
+    },
+    "predictive_equality_difference":{
+        "optimization":"minimize",
+        "type":"fairness",
+        "name":"Predictive Equality Difference",
+        "short_name":"Predictive Equality"
+    },
+    "demographic_parity_difference":{
+        "optimization":"minimize",
+        "type":"fairness",
+        "name":"Demographic Parity Difference",
+        "short_name":"Demographic Parity"
+
+    },
+    "avg_abs_odds_difference":{
+        "optimization":"minimize",
+        "type":"fairness",
+        "name":"Avg Absolute Odds Difference",
+        "short_name":"Avg Abs Odds"
+    },
+    "predictive_parity_difference":{
+        "optimization":"minimize",
+        "type":"fairness",
+        "name":"Predictive Parity Difference",
+        "short_name":"Predictive Parity"
+    }
+
+
+}
