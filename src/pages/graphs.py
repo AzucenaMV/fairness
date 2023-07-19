@@ -7,34 +7,20 @@ import plotly.graph_objects as go
 plt.style.use('seaborn-v0_8-darkgrid')
 from plotly.subplots import make_subplots
 
-def create_df_groups_metric(n, metric, results_dict, model_mapping):
-    models = list(map(model_mapping.get,results_dict['models_sim_u'][0]))
-    n_model = models.index(results_dict['models_sim'][0][n])
-
-    df_groups_u = results_dict['metrics_sim_u'][0][n_model].by_group[metric]
-    df_groups_u['Difference'] = results_dict['metrics_sim_u'][0][n_model].difference()[metric]
-    df_groups_u.name = df_groups_u.name + ' u'
-
-    df_groups_m = results_dict['metrics_sim'][0][n].by_group[metric]
-    df_groups_m['Difference'] = results_dict['metrics_sim'][0][n].difference()[metric]
-    df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index()
-    return df_groups
-
-def create_df_groups_metrics(n, results_dict, model_mapping):
-    models = list(map(model_mapping.get,results_dict['models_sim_u'][0]))
-    n_model = models.index(results_dict['models_sim'][0][n])
-
-    df_groups_u = results_dict['metrics_sim_u'][0][n_model].by_group.T
-    d = results_dict['metrics_sim_u'][0][n_model].difference()
-    d.name = 'Difference'
-    df_groups_u = pd.concat([df_groups_u,d], axis = 1).T
+def create_df_groups_metrics(n, metrics):
+    model = metrics['overall'].loc[metrics['overall'].best_trial == 5,'model_name']
+    n_model = metrics['default_bygroup'].model.isin(model)
+    dif = metrics['default_bygroup'][n_model].apply(pd.to_numeric, errors='coerce').diff().abs().iloc[-1,:]
+    dif[0] = 'Difference'
+    df_groups_u = metrics['default_bygroup'][n_model].T
+    df_groups_u = pd.concat([df_groups_u,dif], axis = 1).T
     df_groups_u.columns = df_groups_u.columns + ' u'
 
-    df_groups_m = results_dict['metrics_sim'][0][n].by_group.T
-    d = results_dict['metrics_sim'][0][n].difference()
-    d.name = 'Difference'
-    df_groups_m = pd.concat([df_groups_m,d], axis = 1).T
-    df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index()
+    dif = metrics['bygroup'][metrics['bygroup'].best_trial == 5].apply(pd.to_numeric, errors='coerce').diff().abs().iloc[-1,:]
+    dif[0] = 'Difference'
+    df_groups_m = metrics['bygroup'][metrics['bygroup'].best_trial == 5].T
+    df_groups_m = pd.concat([df_groups_m,dif], axis = 1).T
+    df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index(drop=True)
     return df_groups
 
 def graph_fair_opt_orig(df_groups, mapping):
@@ -133,7 +119,8 @@ def graph_opt_orig(metric, df_groups):
     return fig
 
 def indicators(n, metrics, df_metrics, df_metrics_u):
-    n_model = df_metrics.loc[n,'model'] == df_metrics_u['model_abrv']
+    df = df_metrics.loc[df_metrics.index == n]
+    n_model = df_metrics_u['model'].isin(df['model_name'])
     fig = go.Figure()
     spacing = np.linspace(0, 1, num= len(metrics) + 1, endpoint=True)
     for i,metric in enumerate(metrics): 
@@ -146,7 +133,7 @@ def indicators(n, metrics, df_metrics, df_metrics_u):
 
         fig.add_trace(go.Indicator(
             mode = "number+delta",
-            value = np.round(df_metrics.loc[n,metric],3),
+            value = np.round(df[metric].values[0],3),
             title = {"text": f"<span style='font-size:.8em;color:#455A64'>{metric.capitalize()}</span><br>"},
             delta = {
                 'reference': np.round(df_metrics_u.loc[n_model,metric].values[0],3), 
@@ -163,14 +150,14 @@ def indicators(n, metrics, df_metrics, df_metrics_u):
     )
     return fig
 
-def graph_eval_groups(metric_frame):
+def graph_eval_groups(df):
     fig = make_subplots(rows=1, cols=2, shared_xaxes=False,
                         shared_yaxes=True, horizontal_spacing=0)
     
     metric1 = 'false negative rate'
-    y = metric_frame.by_group[metric1].index  + "     "
+    y =  df.iloc[:,0]  + "     "
     text1 = "<span style='font-size:.9em;color:#455A64;font-weight:bold'>FN </span> <span style='font-size:.9em;color:#455A64'>(P=0,T=1)</span>"
-    x1 = metric_frame.by_group[metric1]
+    x1 = df[metric1]
     fig.append_trace(go.Bar(
                         x=x1, 
                         y=y,
@@ -184,7 +171,7 @@ def graph_eval_groups(metric_frame):
 
     metric2 = 'false positive rate'
     text2 = "<span style='font-size:1em;color:#455A64;font-weight:bold'>FP</span> <span style='font-size:.9em;color:#455A64'>(P=1,T=0)</span>"
-    x2 = metric_frame.by_group[metric2]
+    x2 = df[metric2]
     fig.append_trace(go.Bar(
                         x=x2, 
                         y=y,
@@ -198,19 +185,17 @@ def graph_eval_groups(metric_frame):
 
     fig.update_xaxes(showticklabels=False,title_text= text1, row=1, col=1, range = [1,0], showgrid=False)
     fig.update_xaxes(showticklabels=False,title_text= text2, row=1, col=2, range = [0,1], showgrid=False)
-    #fig.update_yaxes(tickfont=dict(size = 13))
     fig.update_yaxes(showticklabels=False)
     fig.update_layout(
         margin=dict(l=20, r=20, t=40, b=20),
         template = 'plotly_white',
-        #yaxis = {'side': 'right'}
     )
     return fig
 
-def graph_eval_groups_metric(metric_frame, metric = 'accuracy'):
+def graph_eval_groups_metric(df, metric = 'accuracy'):
     fig = go.Figure()
-    y = metric_frame.by_group[metric].index  + "      "
-    x = metric_frame.by_group[metric]
+    y = df.iloc[:,0]  + "     "
+    x = df[metric]
     text = f"<span style='font-size:1em;color:#455A64;font-weight:bold'>{metric.capitalize()}</span>"
     fig.add_trace(go.Bar(
                         x=x, 
@@ -224,7 +209,6 @@ def graph_eval_groups_metric(metric_frame, metric = 'accuracy'):
     
     fig.update_xaxes(showticklabels=False,title_text= text, range = [0,1], showgrid=False)
     fig.update_yaxes(tickfont=dict(size = 13), showgrid=False)
-    #fig.update_yaxes(showticklabels=False,showgrid=False)
     fig.update_layout(
         margin=dict(l=20, r=20, t=40, b=20),
         template = 'plotly_white',
@@ -240,7 +224,7 @@ def fig_train_test(df_metrics, metric_title, train_col, test_col, ranking_metric
             name = 'Train',
             mode='markers', 
             marker_color='#4682B4',
-            customdata = df_metrics['model'],
+            customdata = df_metrics['model_name'],
             hovertemplate="<br>".join([
                 "Ranking: %{x}",
                 metric_title +" (train): %{y:,.3f}",
@@ -252,7 +236,7 @@ def fig_train_test(df_metrics, metric_title, train_col, test_col, ranking_metric
             x= df_metrics.index, 
             y= df_metrics[test_col], 
             name = 'Test',
-            customdata = df_metrics['model'],
+            customdata = df_metrics['model_name'],
             mode = 'markers',
             marker_color='#87CEEB',
             hovertemplate="<br>".join([
@@ -330,9 +314,8 @@ def fig_train_test_bars(df_metrics, metric_title, train_col, test_col, ranking_m
 
 def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
     fig = go.Figure()
-
-    for model, color in zip(df_metrics['model'].unique(),colors):
-        condition = df_metrics.model == model
+    for model, color in zip(df_metrics['model_name'].unique(),colors):
+        condition = df_metrics.model_name == model
         fig.add_trace(
             go.Scatter(
                 x=df_metrics.loc[condition, train_fair_col], 
@@ -349,7 +332,7 @@ def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_m
                     "Ranking: %{customdata}",
                 ])
                 ))
-        condition = df_metrics_u.model_abrv == model
+        condition = df_metrics_u.model == model
         fig.add_trace(
             go.Scatter(
                     x=df_metrics_u.loc[condition, train_fair_col], 
@@ -395,7 +378,7 @@ def create_df_metrics(fair_metrics, model_metrics):
     return df_metrics
 
 def create_df_ranges(metrics, df_metrics, model):
-    df_metric_models = df_metrics[df_metrics.model.isin(model)]
+    df_metric_models = df_metrics[df_metrics.model_name.isin(model)]
     d = []
     for metric in metrics:
         metric_min = np.min(df_metric_models[metric])
@@ -413,7 +396,7 @@ def create_df_ranges(metrics, df_metrics, model):
 
 def eval_metrics_graph(df_metrics, labels, colors, title, ranking_metric, model_selection, n = 15):
     fig = go.Figure()
-    df_metrics_model = df_metrics.loc[df_metrics.model.isin(model_selection)]
+    df_metrics_model = df_metrics.loc[df_metrics.model_name.isin(model_selection)]
     df_metrics_model['ranking'] = df_metrics_model.index
     df_metrics_model = df_metrics_model.reset_index(drop = True)
     opacity = [.4] * df_metrics_model.shape[0]
@@ -426,7 +409,7 @@ def eval_metrics_graph(df_metrics, labels, colors, title, ranking_metric, model_
                 name = label.capitalize(),
                 x= df_metrics_model['ranking'], 
                 y= df_metrics_model[label], 
-                customdata = df_metrics_model.model,
+                customdata = df_metrics_model.model_name,
                 mode = 'markers',
                 marker = dict(opacity = opacity),
                 marker_color = color,
