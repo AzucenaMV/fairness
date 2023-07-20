@@ -4,8 +4,9 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-plt.style.use('seaborn-v0_8-darkgrid')
 from plotly.subplots import make_subplots
+
+plt.style.use('seaborn-v0_8-darkgrid')
 
 def create_df_groups_metrics(n, metrics):
     model = metrics['overall'].loc[metrics['overall'].best_trial == 5,'model_name']
@@ -38,8 +39,6 @@ def graph_fair_opt_orig(df_groups, mapping):
                             x=df_groups[col + ' u'],
                             orientation='h', 
                             width=0.4,
-                            #name = "Non-Optmized", 
-                            #legendgrouptitle_text="Non-Optmized",
                             legendgroup="Non-Optmized",
                             showlegend= showlegend, 
                             marker_color='#d1d1e0'),
@@ -64,9 +63,6 @@ def graph_fair_opt_orig(df_groups, mapping):
             fig.update_yaxes(showticklabels=False, row=1, col=i+1) 
 
     fig.update_layout(
-        #uniformtext_minsize=5, 
-        #uniformtext_mode='hide',
-        #  margin=dict(l=40, r=40, t=150, b=40),
         barmode='group',
         font_size = 12,
         yaxis=dict(type='category'),

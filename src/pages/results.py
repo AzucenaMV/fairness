@@ -2,7 +2,6 @@ from dash import Dash, html, dcc, Input, Output
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import json
-import sys
 import pandas as pd
 from metrics import (
     equality_opportunity_difference, 
@@ -34,25 +33,28 @@ import plotly.express as px
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import numpy as np
-
 import dash
 import dill
 
 
-#file_name = 'recall-fpr-models-motpe-succesivehalving-parallel-180trials-1sim-results.pkl'
+fair_metric_name = 'Predictive Equality Difference'
+model_metric_name = 'F1 Score'
+fair_col = 'predictive equality'
+model_col = 'f1 score'
+train_fair_col = 'fair_metric'
+train_model_col = 'model_metric'
+
 file_name = '../notebooks/results/sex/f1-ppv-models-motpe-succesivehalving-parallel-150trials-4sim-metrics.pkl'
 with open(file_name, 'rb') as in_strm:
     metrics = dill.load(in_strm)
 
-metrics['overall'] = metrics['overall'].sort_values(['fair_metric']).reset_index(drop = True)
+file_name = '../notebooks/metrics.json'
+with open(file_name, 'rb') as f:
+    metrics_info = json.load(f)
 
-fair_metrics = [
-    'demographic parity',
-    'predictive parity',
-    'equality opportunity',
-    'predictive equality', 
-    'average absolute odds',
-    ]
+metrics['overall'] = metrics['overall'].sort_values(['fair_metric']).reset_index(drop = True)
+model_metrics = [metrics_info[metric]['short_name'].lower()for metric in metrics_info if metrics_info[metric]['type'] == 'model']
+fair_metrics = [metrics_info[metric]['short_name'].lower() for metric in metrics_info if metrics_info[metric]['type'] == 'fairness']
 
 mapping = {
     "selection rate":"demographic parity",
@@ -73,29 +75,8 @@ metrics_bygroup = {
     #"true negative rate" : "True negative rate"
 }
 
-model_metrics = [
-    'recall', 
-    'precision',
-    'f1 score',
-    'accuracy'
-    ]
-
-#df_metrics = create_df_metrics(fair_metrics_dict, model_metrics_dict)
-#df_metrics['model'] = results_dict['models_sim'][0]
-#df_metrics = df_metrics[df_metrics['train_model'] != 0]
-#df_metrics_sorted = df_metrics.sort_values(['train_fair'])
-#new_index = df_metrics_sorted.index
-#df_metrics_sorted = df_metrics_sorted.reset_index(drop = True)
 
 colors = ['CornflowerBlue','LightCoral','MediumPurple','SandyBrown','lightseagreen']
-
-fair_metric_name = 'Predictive Equality Difference'
-model_metric_name = 'F1 Score'
-fair_col = 'predictive equality'
-model_col = 'f1 score'
-train_fair_col = 'fair_metric'
-train_model_col = 'model_metric'
-
 fair_mse = np.round(nmse(metrics['overall'], train_fair_col, fair_col),3)
 model_mse = np.round(nmse(metrics['overall'], train_model_col, model_col),3)
 
@@ -136,8 +117,7 @@ CONTENT_STYLE = {
 external_stylesheets = [dbc.themes.BOOTSTRAP] 
 app = Dash(__name__,
            external_stylesheets=external_stylesheets,
-           suppress_callback_exceptions=True) #,
-           #use_pages=True)
+           suppress_callback_exceptions=True) 
 
 navbar = dbc.NavbarSimple(
     brand=html.H4("Fairness App"),
@@ -250,7 +230,6 @@ tab_indicators = html.Div([
         html.Br(),
         html.Div([
             html.H5("Model Metrics", style={'color': '#455A64','display':'inline-block'}),
-            #html.Button('\u2139', id='indicators-info', n_clicks=0, title= 'hola'),
             html.Abbr("\u2139", title="The main value corresponds to the optmized model that is selected in the results tab. The increase or decrease is relative to the same type of model as the selection with the default hyperparamets. A green arrow means that the optimized model is performing better for that specific metric.", 
                       style = {'display':'inline-block',"font-size":"1.1em", "padding-left":20, 'text-decoration': 'none','border':'none'})
     ], style = {'text-align': 'center'}),
@@ -346,8 +325,7 @@ def display_click_data(clickData):
 @app.callback(
     Output('fig_groups_opt_orig', 'figure'),
     [Input('paretofig', 'clickData')])
-    # Input('metric_eval_opt_orig', 'value')])
-def update_groups_figure(clickData): #, metric_group):
+def update_groups_figure(clickData):
     n = clickData['points'][0]['customdata']
     df_groups = create_df_groups_metrics(int(n), metrics)
     return graph_fair_opt_orig(df_groups, mapping)
@@ -381,9 +359,6 @@ def update_model_eval_figure(selected_drop, clickData, model_selection):
     elif selected_drop == 'scatter':
         fig = eval_metrics_graph(metrics['overall'], model_metrics, colors, model_title, n = n, model_selection= model_selection, ranking_metric = fair_col)
     return fig
-
-
-
 
 if __name__ == '__main__':
     app.run_server(debug=True)

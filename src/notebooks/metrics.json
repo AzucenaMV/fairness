@@ -2,24 +2,28 @@
     "f1_score": {
         "optimization":"maximize",
         "type":"model",
-        "name": "F1 Score"
+        "name": "F1 Score",
+        "short_name" : "F1 Score"
     },
     "recall_score":{
         "optimization":"maximize",
         "type":"model",
-        "name": "Recall"
+        "name": "Recall",
+        "short_name" : "Recall"
 
     },
     "precision_score":{
         "optimization":"maximize",
         "type":"model",
-        "name": "Precision"
+        "name": "Precision",
+        "short_name": "Precision"
 
     },
     "accuracy_score":{
         "optimization":"maximize",
         "type":"model",
-        "name": "Accuracy"
+        "name": "Accuracy",
+        "short_name": "Accuracy"
     },
     "matthews_corrcoef":{
         "optimization":"maximize",
@@ -50,7 +54,7 @@
         "optimization":"minimize",
         "type":"fairness",
         "name":"Avg Absolute Odds Difference",
-        "short_name":"Avg Abs Odds"
+        "short_name":"Average Absolute Odds"
     },
     "predictive_parity_difference":{
         "optimization":"minimize",
