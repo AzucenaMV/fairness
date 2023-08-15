@@ -1,6 +1,7 @@
 from dash import Dash, html, dcc, Input, Output
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from dash.long_callback import DiskcacheLongCallbackManager
 import json
 import pandas as pd
 from metrics import (
@@ -36,7 +37,6 @@ import numpy as np
 import dash
 import dill
 
-
 fair_metric_name = 'Predictive Equality Difference'
 model_metric_name = 'F1 Score'
 fair_col = 'predictive equality'
@@ -52,9 +52,13 @@ file_name = '../notebooks/metrics.json'
 with open(file_name, 'rb') as f:
     metrics_info = json.load(f)
 
-metrics['overall'] = metrics['overall'].sort_values(['fair_metric']).reset_index(drop = True)
 model_metrics = [metrics_info[metric]['short_name'].lower()for metric in metrics_info if metrics_info[metric]['type'] == 'model']
 fair_metrics = [metrics_info[metric]['short_name'].lower() for metric in metrics_info if metrics_info[metric]['type'] == 'fairness']
+
+df_default_overall = metrics['default_overall'].rename(columns = {'model':'model_name'})
+df_optimized_overall = metrics['overall']
+df_overall = pd.concat([df_optimized_overall,df_default_overall])
+df_overall = df_overall.sort_values([fair_col]).reset_index(drop = True)
 
 mapping = {
     "selection rate":"demographic parity",
@@ -81,8 +85,7 @@ fair_mse = np.round(nmse(metrics['overall'], train_fair_col, fair_col),3)
 model_mse = np.round(nmse(metrics['overall'], train_model_col, model_col),3)
 
 paretoFig = pareto_fig(
-    metrics['overall'], 
-    metrics['default_overall'], 
+    df_overall,
     fair_col, 
     model_col, 
     fair_metric_name, 
@@ -300,8 +303,12 @@ app.layout = dbc.Container(
      Input('metric_eval_choice','value')])
 def update_eval_figure(clickData, metric):
     n = clickData['points'][0]['customdata']
-    n_best_trial = metrics['overall'].loc[metrics['overall'].index == n,'best_trial'].values[0]
-    df = metrics['bygroup'][metrics['bygroup'].best_trial == n_best_trial]
+    n_best_trial = df_overall.loc[df_overall.index == n,'best_trial'].values[0]
+    if ~np.isnan(n_best_trial):
+        df = metrics['bygroup'][metrics['bygroup'].best_trial == n_best_trial]
+    else:
+        model = df_overall.loc[df_overall.index == n,'model_name'].values[0]
+        df = metrics['default_bygroup'][metrics['default_bygroup'].model == model]
     fig_eval_groups = graph_eval_groups(df)
     fig_eval_groups_metric = graph_eval_groups_metric(df, metric)
     return fig_eval_groups, fig_eval_groups_metric
@@ -312,8 +319,8 @@ def update_eval_figure(clickData, metric):
     [Input('paretofig', 'clickData')])
 def update_indicators_figure(clickData):
     n = clickData['points'][0]['customdata']
-    fig_indicators = indicators(int(n), model_metrics, metrics['overall'], metrics['default_overall'])
-    fig_indicators_fair = indicators(int(n), fair_metrics, metrics['overall'], metrics['default_overall'])
+    fig_indicators = indicators(int(n), model_metrics, df_overall, metrics['default_overall'])
+    fig_indicators_fair = indicators(int(n), fair_metrics, df_overall, metrics['default_overall'])
     return fig_indicators, fig_indicators_fair
 
 @app.callback(
@@ -327,7 +334,7 @@ def display_click_data(clickData):
     [Input('paretofig', 'clickData')])
 def update_groups_figure(clickData):
     n = clickData['points'][0]['customdata']
-    df_groups = create_df_groups_metrics(int(n), metrics)
+    df_groups = create_df_groups_metrics(int(n), df_overall, metrics)
     return graph_fair_opt_orig(df_groups, mapping)
 
 @app.callback(  
@@ -339,10 +346,10 @@ def update_fair_eval_figure(selected_drop, clickData, model_selection):
     fair_title = 'Fairness metrics'
     n = clickData['points'][0]['customdata']
     if selected_drop == 'bars':
-        df_fair_ranges = create_df_ranges(fair_metrics, metrics['overall'], model_selection)
-        fig = comparison_graph(df_ranges = df_fair_ranges, df_metrics = metrics['overall'], n = n, title = fair_title)
+        df_fair_ranges = create_df_ranges(fair_metrics, df_overall, model_selection)
+        fig = comparison_graph(df_ranges = df_fair_ranges, df_metrics = df_overall, n = n, title = fair_title)
     elif selected_drop == 'scatter':
-        fig = eval_metrics_graph(metrics['overall'], fair_metrics, colors, fair_title, model_selection= model_selection, n = n, ranking_metric = fair_col)
+        fig = eval_metrics_graph(df_overall, fair_metrics, colors, fair_title, model_selection= model_selection, n = n, ranking_metric = fair_col)
     return fig
 
 @app.callback(
@@ -354,10 +361,10 @@ def update_model_eval_figure(selected_drop, clickData, model_selection):
     model_title = 'Model metrics'
     n = clickData['points'][0]['customdata']
     if selected_drop == 'bars':
-        df_model_ranges = create_df_ranges(model_metrics, metrics['overall'], model_selection)
-        fig = comparison_graph(df_ranges = df_model_ranges, df_metrics = metrics['overall'], n = n, title = model_title)
+        df_model_ranges = create_df_ranges(model_metrics, df_overall, model_selection)
+        fig = comparison_graph(df_ranges = df_model_ranges, df_metrics = df_overall, n = n, title = model_title)
     elif selected_drop == 'scatter':
-        fig = eval_metrics_graph(metrics['overall'], model_metrics, colors, model_title, n = n, model_selection= model_selection, ranking_metric = fair_col)
+        fig = eval_metrics_graph(df_overall, model_metrics, colors, model_title, n = n, model_selection= model_selection, ranking_metric = fair_col)
     return fig
 
 if __name__ == '__main__':
