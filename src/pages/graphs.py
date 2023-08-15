@@ -8,8 +8,8 @@ from plotly.subplots import make_subplots
 
 plt.style.use('seaborn-v0_8-darkgrid')
 
-def create_df_groups_metrics(n, metrics):
-    model = metrics['overall'].loc[metrics['overall'].best_trial == 5,'model_name']
+def create_df_groups_metrics(n, df_overall, metrics):
+    model = df_overall.loc[df_overall.index == n,'model_name']
     n_model = metrics['default_bygroup'].model.isin(model)
     dif = metrics['default_bygroup'][n_model].apply(pd.to_numeric, errors='coerce').diff().abs().iloc[-1,:]
     dif[0] = 'Difference'
@@ -17,16 +17,20 @@ def create_df_groups_metrics(n, metrics):
     df_groups_u = pd.concat([df_groups_u,dif], axis = 1).T
     df_groups_u.columns = df_groups_u.columns + ' u'
 
-    dif = metrics['bygroup'][metrics['bygroup'].best_trial == 5].apply(pd.to_numeric, errors='coerce').diff().abs().iloc[-1,:]
-    dif[0] = 'Difference'
-    df_groups_m = metrics['bygroup'][metrics['bygroup'].best_trial == 5].T
-    df_groups_m = pd.concat([df_groups_m,dif], axis = 1).T
-    df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index(drop=True)
+    n_best_trial = df_overall.loc[df_overall.index == n,'best_trial'].values[0]
+    if ~np.isnan(n_best_trial):
+        dif = metrics['bygroup'][metrics['bygroup'].best_trial == n_best_trial].apply(pd.to_numeric, errors='coerce').diff().abs().iloc[-1,:]
+        dif[0] = 'Difference'
+        df_groups_m = metrics['bygroup'][metrics['bygroup'].best_trial == n_best_trial].T
+        df_groups_m = pd.concat([df_groups_m,dif], axis = 1).T
+        df_groups = pd.concat([df_groups_u,df_groups_m],axis = 1).reset_index(drop=True)
+    else:
+        df_groups = df_groups_u
     return df_groups
 
 def graph_fair_opt_orig(df_groups, mapping):
     name = df_groups.columns[0]
-    fig = make_subplots(rows=1, cols=len(mapping), horizontal_spacing=.01)
+    fig = make_subplots(rows=1, cols=len(mapping), horizontal_spacing=.02)
     for i,(col, metric) in enumerate(zip(mapping.keys(),mapping.values())):
         if i == 0:
             showlegend = True
@@ -43,20 +47,17 @@ def graph_fair_opt_orig(df_groups, mapping):
                             showlegend= showlegend, 
                             marker_color='#d1d1e0'),
                             row = 1, col = i+1)
-                            #row = int(np.ceil((i+1)/2)), col = (i % 2) + 1) 
-
-        fig.add_trace(go.Bar(
-                            #name = metric + ' optimized',
-                            name = 'Optimized',
-                            y=df_groups[name] + ' ', 
-                            x=df_groups[col],
-                            #legendgrouptitle_text="Optmized",
-                            legendgroup="Optmized",
-                            orientation='h', 
-                            width=0.4, 
-                            showlegend= showlegend, 
-                            marker_color='#ADD8E6'),
-                            row = 1, col = i+1)
+        if any(df_groups.columns == col):
+            fig.add_trace(go.Bar(
+                                name = 'Optimized',
+                                y=df_groups[name] + ' ', 
+                                x=df_groups[col],
+                                legendgroup="Optmized",
+                                orientation='h', 
+                                width=0.4, 
+                                showlegend= showlegend, 
+                                marker_color='#ADD8E6'),
+                                row = 1, col = i+1)
 
         fig.update_xaxes(side = 'top', title_text="<span style='font-size:1em;color:#455A64'>"+metric.capitalize()+"</span><br><span style='font-size:.8em;color:#455A64'>"+ col.capitalize()+"</span>", row=1, col=i+1)
         if i != 0:
@@ -191,7 +192,7 @@ def graph_eval_groups(df):
 def graph_eval_groups_metric(df, metric = 'accuracy'):
     fig = go.Figure()
     y = df.iloc[:,0]  + "     "
-    x = df[metric]
+    x = df.loc[:,metric]
     text = f"<span style='font-size:1em;color:#455A64;font-weight:bold'>{metric.capitalize()}</span>"
     fig.add_trace(go.Bar(
                         x=x, 
@@ -308,10 +309,10 @@ def fig_train_test_bars(df_metrics, metric_title, train_col, test_col, ranking_m
     )
     return fig
 
-def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
+def pareto_fig(df_metrics, train_fair_col, train_model_col, fair_metric_name, model_metric_name, colors):
     fig = go.Figure()
     for model, color in zip(df_metrics['model_name'].unique(),colors):
-        condition = df_metrics.model_name == model
+        condition = (df_metrics.model_name == model) & (~df_metrics.best_trial.isna())
         fig.add_trace(
             go.Scatter(
                 x=df_metrics.loc[condition, train_fair_col], 
@@ -328,11 +329,11 @@ def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_m
                     "Ranking: %{customdata}",
                 ])
                 ))
-        condition = df_metrics_u.model == model
+        condition = (df_metrics.model_name == model) & (df_metrics.best_trial.isna())
         fig.add_trace(
             go.Scatter(
-                    x=df_metrics_u.loc[condition, train_fair_col], 
-                    y=df_metrics_u.loc[condition, train_model_col],
+                    x=df_metrics.loc[condition, train_fair_col], 
+                    y=df_metrics.loc[condition, train_model_col],
                     mode='markers', 
                     name = model,
                     marker = {
@@ -341,7 +342,7 @@ def pareto_fig(df_metrics, df_metrics_u, train_fair_col, train_model_col, fair_m
                         'symbol' : 'x'
                     },
                     showlegend = False,
-                    customdata = df_metrics_u[condition].index,
+                    customdata = df_metrics[condition].index,
                     hovertemplate="<br>".join([
                         fair_metric_name+" (default): %{x:,.3f}",
                         model_metric_name+" (default): %{y:,.3f}",
@@ -374,7 +375,7 @@ def create_df_metrics(fair_metrics, model_metrics):
     return df_metrics
 
 def create_df_ranges(metrics, df_metrics, model):
-    df_metric_models = df_metrics[df_metrics.model_name.isin(model)]
+    df_metric_models = df_metrics.loc[df_metrics.model_name.isin(model)]
     d = []
     for metric in metrics:
         metric_min = np.min(df_metric_models[metric])
@@ -387,12 +388,13 @@ def create_df_ranges(metrics, df_metrics, model):
                 'diff': metric_max - metric_min
             }
         )
-
     return pd.DataFrame(d)
 
 def eval_metrics_graph(df_metrics, labels, colors, title, ranking_metric, model_selection, n = 15):
     fig = go.Figure()
     df_metrics_model = df_metrics.loc[df_metrics.model_name.isin(model_selection)]
+    df_metrics_model['marker'] = 'circle'
+    df_metrics_model['marker'][df_metrics_model.best_trial.isna()] = 'x'
     df_metrics_model['ranking'] = df_metrics_model.index
     df_metrics_model = df_metrics_model.reset_index(drop = True)
     opacity = [.4] * df_metrics_model.shape[0]
@@ -409,6 +411,7 @@ def eval_metrics_graph(df_metrics, labels, colors, title, ranking_metric, model_
                 mode = 'markers',
                 marker = dict(opacity = opacity),
                 marker_color = color,
+                marker_symbol = df_metrics_model['marker'],
                 hovertemplate = "<br>".join([
                     "Ranking: %{x}",
                     label.capitalize() +" (test): %{y:,.3f}",
@@ -433,7 +436,6 @@ def eval_metrics_graph(df_metrics, labels, colors, title, ranking_metric, model_
             x=1,
             font=dict(size= 9),
             ),
-        #title = title
     )
     return fig
 
@@ -443,7 +445,7 @@ def comparison_graph(df_ranges, df_metrics, n, title):
     for i in range(df_ranges.shape[0]):
         fig.add_trace(
             go.Bar(
-                    x= [df_ranges['min'][i]],
+                    x= [df_ranges['min'][i]],   
                     y= [df_ranges.metric[i]],
                     width = .05,
                     marker = dict(
